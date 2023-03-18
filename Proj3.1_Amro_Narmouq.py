@@ -53,30 +53,30 @@ x_range = range(0, 650)
 y_range = range(0, 250)
 #each point is saved as follows: (C2C, point_index, (x,y)parent_coordinates, (x,y)coordinates)
 #user input needed to specify goal position coordinates
-# start_x_position = int(input("enter start X position(0-600) "))
-# start_y_position = int(input("enter start y position(0-250) "))
-# start_position = (0, node_index, None, (start_x_position,start_y_position))
-# if start_position[3] in obstacle_points:
-#     print("start point selected is in obstacle space, try again")
-#     print(start_position)
-#     exit()
-# if start_position[3] in map_points:
-#     print("start point selected is  outside the map, try again")
-#     print(start_position)
-#     exit()
+start_x_position = int(input("enter start X position(0-600) "))
+start_y_position = int(input("enter start y position(0-250) "))
+start_position = (0, node_index, None, (start_x_position,start_y_position))
+if start_position[3] in obstacle_points:
+    print("start point selected is in obstacle space, try again")
+    print(start_position)
+    exit()
+if start_position[3] in map_points:
+    print("start point selected is  outside the map, try again")
+    print(start_position)
+    exit()
 
-#user input needed to specify goal position coordinates
-# goal_x_position = int(input("enter start X position (0-600) "))
-# goal_y_position = int(input("enter start X position (0-250) "))
-# goal_position = (goal_x_position,goal_y_position)
-# if goal_position in obstacle_points or goal_position in map_points:
-#     print("goal point selected is either outside the map or in obstacle space, try again")
-#     exit()
-# if goal_position in map_points:
-#     print("start point selected is  outside the map, try again")
-#     print(start_position)
-#     exit()
-# hq.heappush(Open_List, start_position)
+# user input needed to specify goal position coordinates
+goal_x_position = int(input("enter start X position (0-600) "))
+goal_y_position = int(input("enter start X position (0-250) "))
+goal_position = (goal_x_position,goal_y_position)
+if goal_position in obstacle_points or goal_position in map_points:
+    print("goal point selected is either outside the map or in obstacle space, try again")
+    exit()
+if goal_position in map_points:
+    print("start point selected is  outside the map, try again")
+    print(start_position)
+    exit()
+hq.heappush(Open_List, start_position)
 
 #check if coordinates are within the map
 def boundries (x,y):
