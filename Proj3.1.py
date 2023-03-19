@@ -123,6 +123,7 @@ if (goal_position[0], goal_position[1]) not in map_points:
     print("start point selected is  outside the map, try again")
     exit()
 
+
 def C2G_func (n_position, g_position): 
     C2G = round(((g_position[0]-n_position[0])**2 + (g_position[1]-n_position[1])**2)**0.5, 1)
     return C2G
