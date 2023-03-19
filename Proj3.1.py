@@ -87,9 +87,18 @@ def obs_4 (x, y):
     else: 
         return False
 
+#user input required to fill out the following
+start_position = (10, 10, 30)
+goal_position = (595, 125, 30)
+step_size = 10
+clearance = 5
+robot_size = 5
+thresh = 0.5
+
+#function that defines the goal position as a circle with a threshhold. takes in the size of the robot as the threshhold for the target
 def point_in_goal(x, y):
     distance = math.sqrt((x-goal_position[0])**2 + (y-goal_position[1])**2)
-    if distance <= 5:
+    if distance <= robot_size:
         return True
     else:
         return False
@@ -103,12 +112,6 @@ for x in x_range:
         if obs_1(x, y) or obs_2(x, y) or obs_3(x, y) or obs_4(x, y):
             obstacle_points.add((x, y))
 
-start_position = (10, 10, 30)
-goal_position = (595, 125, 30)
-step_size = 10
-clearance = 5
-robot_size = 5
-thresh = 0.5
 
 if (start_position[0], start_position[1]) in obstacle_points:
     print("start point selected is in obstacle space, try again")
@@ -123,18 +126,20 @@ if (goal_position[0], goal_position[1]) not in map_points:
     print("start point selected is  outside the map, try again")
     exit()
 
-
+#function to calculate the cost to go to from the point to the goal in a straight line
 def C2G_func (n_position, g_position): 
     C2G = round(((g_position[0]-n_position[0])**2 + (g_position[1]-n_position[1])**2)**0.5, 1)
     return C2G
 
+#initial values for the start node
 C2G1 = C2G_func(start_position, goal_position)
 C2C1 = 0
 TC1 = C2G1 + C2C1
-#(C2C, C2G, TC, node_Index, parent_coord(X,Y,Theta), point_coordinates(X,Y,Theta))
+#(C2G, C2C, TC, point_index, (x,y,theta)parent_coordinates, (x,y,theta)coordinates)
 start_node = (C2G1, C2C1, TC1, node_index, None, start_position)
 hq.heappush(Open_List, start_node)
 
+#explore function that explores the next node located step-size away at +30 degrees and returns the new explored node
 def explore_pos30 (n):
     angle = 30
     rad = math.radians(angle)
@@ -148,6 +153,7 @@ def explore_pos30 (n):
     new = (temp_C2G, temp_C2C, temp_TC, node_index, n[5], (new_coor_x, new_coor_y, new_coor_theta))
     return new
 
+#explore function that explores the next node located step-size away at +60 degrees and returns the new explored node
 def explore_pos60 (n):
     angle = 60
     rad = math.radians(angle)
@@ -161,6 +167,7 @@ def explore_pos60 (n):
     new = (temp_C2G, temp_C2C, temp_TC, node_index, n[5], (new_coor_x, new_coor_y, new_coor_theta))
     return new
 
+#explore function that explores the next node located step-size away at -30 degrees and returns the new explored node
 def explore_neg30 (n):
     angle = -30
     rad = math.radians(angle)
@@ -174,6 +181,7 @@ def explore_neg30 (n):
     new = (temp_C2G, temp_C2C, temp_TC, node_index, n[5], (new_coor_x, new_coor_y, new_coor_theta))
     return new
 
+#explore function that explores the next node located step-size away at -60 degrees and returns the new explored node
 def explore_neg60 (n):
     angle = -60
     new_angle = n[5][2] + angle
@@ -188,6 +196,7 @@ def explore_neg60 (n):
     new = (temp_C2G, temp_C2C, temp_TC, node_index, n[5], (new_coor_x, new_coor_y, new_coor_theta))
     return new
 
+#explore function that explores the next node located step-size away straight ahead of the parent node and returns the new explored node
 def explore_straight (n):
     angle = 0
     new_angle = n[5][2] + angle
@@ -202,6 +211,8 @@ def explore_straight (n):
     new = (temp_C2G, temp_C2C, temp_TC, node_index, n[5], (new_coor_x, new_coor_y, new_coor_theta))
     return new
 
+#main exploration function. starts by popping a node out of the open list and checking the status of the popped node prior to expanding the
+#the search using the exploration functions defined above. 
 def exploreNodes(): 
     global goal_found
     hq.heapify(Open_List)
@@ -210,10 +221,12 @@ def exploreNodes():
             break
         popped_node = hq.heappop(Open_List)
         Closed_Coor.add((popped_node[5][0], popped_node[5][1]))
+#popped node is checked and added to the closed list as a dic
         check_popped_status(popped_node)
         popped_node_dic = {"C2G": popped_node[0], "C2C": popped_node[1], "TC": popped_node[2], "node_index": popped_node[3], "parent_coor": popped_node[4], "node_coor": popped_node[5]}
         Closed_List.append(popped_node_dic)
-
+#checks if the newly created node falls within the defined map points, outside the obstacles, has not been closed already and its not within the threshhold of other points
+#when all pass, it adds it to the open list 
         new_node = explore_pos30(copy.deepcopy(popped_node))
         if ((new_node[5][0], new_node[5][1])) in map_points: 
             if ((new_node[5][0], new_node[5][1])) not in obstacle_points:
@@ -245,7 +258,8 @@ def exploreNodes():
                     if threshhold(new_node[5][0], new_node[5][1], new_node[5][2]):
                         checkC2C(copy.deepcopy(popped_node), new_node)
         return Open_List, Closed_Coor, Closed_List
-
+    
+#threshhold function that checks if the newly created point falls within the already explored points, angle must be the same. point can have multiple different angle
 def threshhold(nx, ny, nt):
     if (nx, ny, nt) in threshold_coor: 
         return True
@@ -263,20 +277,13 @@ def threshhold(nx, ny, nt):
 #check if newly explored point has been explored previously, if so compare C2C and update if the new C2C is lower than the one originally stored
 def checkC2C (on, n):
     global node_index
-    # for i, nodes in enumerate(Open_List):
-    #     if nodes[5] == n[5]:
-    #         if n[2] < nodes[2]:
-    #             new_node = (n[0], n[1], n[2], nodes[3], n[5], nodes[5])
-    #             Open_List[i] = new_node
-    #             hq.heapify(Open_List)
-    #         return Open_List
-    # else:
     node_index += 1
     new = (n[0], n[1], n[2], node_index, on[5], n[5])
     hq.heappush(Open_List, new)
     hq.heapify(Open_List)
     return Open_List
 
+#function to check the status of the popped node, if it matches the goal coordinates it starts the backtracking function
 def check_popped_status (n):
     global goal_found
     if point_in_goal(n[5][0], n[5][1]) and n[5][2] == goal_position[2]:
@@ -291,7 +298,7 @@ def check_popped_status (n):
     else: 
         return(n)
 
-
+#plotting function
 def plot_function(path):
     closed_nodes = [node['node_coor'] for node in Closed_List]
     # plot_closed_nodes()
@@ -301,7 +308,8 @@ def plot_function(path):
     plt.scatter(x_coords, y_coords, marker='o', color='black', alpha=1)
     # plt.plot(*zip(*path_nodes), color='black')
 
-
+#backtracking function that takes in the last closed node from the closed list and runs a loop using
+#  the node coordinates and the parent coordinate to trace back the steps leading to the start position
 def start_backtrack (): 
     path_nodes = []
     path_coor = []
@@ -310,7 +318,7 @@ def start_backtrack ():
     path_coor.append((current_node['node_coor'][0], current_node['node_coor'][1]))
     print("First node used:", current_node)
     
-# (C2C, point_index, (x,y)parent_coordinates, (x,y)coordinates)
+# (C2G, C2C, TC, point_index, (x,y,theta)parent_coordinates, (x,y,theta)coordinates)
     while current_node["parent_coor"] is not None:
         search_value = current_node["parent_coor"]
         for node in Closed_List:
