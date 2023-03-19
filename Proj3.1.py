@@ -32,7 +32,7 @@ COORDINATES = 5
 
 
 Open_List = []
-Closed_List = []
+Closed_List = []  # {"C2G", "C2C", "TC", "node_index", "parent_coor", "node_coor"}
 Closed_Coor = set()
 threshold_coor = set()
 node_index = 0
@@ -164,11 +164,11 @@ def __draw_line(p1, p2, map, color):
 
 def draw_node(child_coordinates, parent_coordinates, map, color):
 
-    child_coordinates = tuple(int(SCALE_FACTOR * x) for x in child_coordinates)
+    child_coordinates = tuple(int(SCALE_FACTOR * _) for _ in child_coordinates)
     cv.circle(map, child_coordinates, radius=3, color=color, thickness=-1)
 
-    if parent_coordinates is not None:
-        parent_coordinates = tuple(int(SCALE_FACTOR * x) for x in parent_coordinates)
+    if (parent_coordinates is not None):
+        parent_coordinates = tuple(int(SCALE_FACTOR * _ ) for _ in parent_coordinates)
         cv.circle(map, parent_coordinates, radius=3, color=color, thickness=-1)
         __draw_line(child_coordinates, parent_coordinates, map, color)
 
@@ -394,12 +394,29 @@ def start_backtrack ():
 
 
 def run_visualization(path_coordinates):
+    counter = 0
+    for node in Closed_List:
+        child_coordinates = (node["node_coor"][X], node["node_coor"][Y])
+        if node["parent_coor"] == None:
+            parent_coordinates = None
+        else:
+            parent_coordinates = (node["parent_coor"][X], node["parent_coor"][Y])
+        draw_node(child_coordinates, parent_coordinates, color_map, GRAY)
+        counter += 1
+        if counter == 50:
+            cv.imshow('Djikstra\'s Algorith', color_map)
+            cv.waitKey(1)
+            counter = 0
+
     parent = None
+    counter += 1
     for node in path_coordinates:
         draw_node(node, parent, color_map, DARK_GREEN)
         parent = node
         cv.imshow('Djikstra\'s Algorith', color_map)
         cv.waitKey(1)
+    cv.waitKey(0)
+    cv.destroyAllWindows()
     return
 
 
