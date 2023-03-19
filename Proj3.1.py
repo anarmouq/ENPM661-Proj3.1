@@ -1,46 +1,35 @@
 import heapq as hq
 import copy
 import numpy as np
-import matplotlib.pyplot as plt
-from matplotlib.patches import Rectangle
-from matplotlib.patches import Polygon
 import math
 from matplotlib import pyplot as plt
+import cv2 as cv
+from numpy import tan, deg2rad
 
-side_length1 = 75
-side_length2 = 80
-center = (300, 125)
-angle = 30
-HexVert = []
-HexVertClea = []
-for i in range(6):
-    x = center[0] + side_length1 * math.cos(math.pi / 3 * i + math.radians(angle))
-    y = center[1] + side_length1 * math.sin(math.pi / 3 * i + math.radians(angle))
-    HexVert.append((x, y))
 
-for i in range(6):
-    x = center[0] + side_length2 * math.cos(math.pi / 3 * i + math.radians(angle))
-    y = center[1] + side_length2 * math.sin(math.pi / 3 * i + math.radians(angle))
-    HexVertClea.append((x, y))
-fig, ax = plt.subplots()
-ax.set_xlim([0, 600])
-ax.set_ylim([0, 250])
-poly_1 = Rectangle((100, 0), 50, 100, linewidth=1, edgecolor='b', facecolor='b')
-clea_1 = Rectangle((95, 0), 60, 105, linewidth=1, edgecolor='r', facecolor='none')
-ax.add_patch(poly_1)
-ax.add_patch(clea_1)
-poly_2 = Rectangle((100,150), 50, 100, linewidth=1, edgecolor='b', facecolor='b')
-clea_2 = Rectangle((95, 145), 60, 105, linewidth=1, edgecolor='r', facecolor='none')
-ax.add_patch(poly_2)
-ax.add_patch(clea_2)
-poly_3 = Polygon([(460, 25), (460, 225), (510, 125)], linewidth=1, edgecolor='b', facecolor='b')
-clea_3 = Polygon([(465, 20), (455, 20), (455, 230), (465, 230), (515, 125)], linewidth=1, edgecolor='r', facecolor='none')
-ax.add_patch(poly_3)
-ax.add_patch(clea_3)
-poly_4 = Polygon(HexVert, linewidth=1, edgecolor='b', facecolor='b')
-clea_4 = Polygon(HexVertClea, linewidth=1, edgecolor='r', facecolor='None')
-ax.add_patch(poly_4)
-ax.add_patch(clea_4)
+
+SCALE_FACTOR = 2
+
+BLUE = (255, 0, 0)
+DARK_GREEN = (15, 168, 33)
+GREEN = (0, 255, 0)
+RED = (0, 0, 255)
+YELLOW = (9, 227, 212)
+BLACK = (0, 0, 0)
+GRAY = (199, 198, 195)
+
+# for coordinates
+X = 0
+Y = 1
+
+# map dimensions
+X_MAX = 600
+Y_MAX = 250
+
+# used accessing node information
+PARENT_COORDINATES = 4
+COORDINATES = 5
+
 
 Open_List = []
 Closed_List = []
@@ -49,95 +38,156 @@ threshold_coor = set()
 node_index = 0
 obstacle_points = set()
 map_points = set()
-x_range = np.arange(0, 600.5, 0.5)
-y_range = np.arange(0, 250.5, 0.5)
 
-def boundries (x,y):
-    if x >= 5 and x <= 595 and y >= 5 and y <= 245:
-        return True
-    else: 
+
+
+def draw_map():
+    # Background
+    background_color = BLACK
+    map = np.zeros((250*SCALE_FACTOR, 600*SCALE_FACTOR, 3), np.uint8)
+    map[:] = background_color
+
+    # Map boarder
+    map[0:ROBOT_SIZE*SCALE_FACTOR, :] = YELLOW                                    # north edge
+    map[(Y_MAX - ROBOT_SIZE) * SCALE_FACTOR: Y_MAX * SCALE_FACTOR, :] = YELLOW    # south edge
+    map[:, 0:ROBOT_SIZE * SCALE_FACTOR] = YELLOW                                   # east edge
+    map[:, (X_MAX - ROBOT_SIZE) * SCALE_FACTOR: X_MAX * SCALE_FACTOR] = YELLOW      # west edge
+
+    # box 1 boundary
+    pts = np.array([[(100 - ROBOT_SIZE) * SCALE_FACTOR, 0 * SCALE_FACTOR],
+                    [(150 + ROBOT_SIZE) * SCALE_FACTOR, 0 * SCALE_FACTOR],
+                    [(150 + ROBOT_SIZE) * SCALE_FACTOR, (100 + ROBOT_SIZE) * SCALE_FACTOR],
+                    [(100 - ROBOT_SIZE) * SCALE_FACTOR, (100 + ROBOT_SIZE) * SCALE_FACTOR]],
+                   np.int32)
+    cv.fillPoly(map, [pts], YELLOW)
+
+    # box 1
+    pts = np.array([[100 * SCALE_FACTOR, 0 * SCALE_FACTOR],
+                    [150 * SCALE_FACTOR, 0 * SCALE_FACTOR],
+                    [150 * SCALE_FACTOR, 100 * SCALE_FACTOR],
+                    [100 * SCALE_FACTOR, 100 * SCALE_FACTOR]],
+                   np.int32)
+    cv.fillPoly(map, [pts], BLUE)
+
+    # box 2  boundary
+    pts = np.array([[(100 - ROBOT_SIZE) * SCALE_FACTOR, (150 - ROBOT_SIZE) * SCALE_FACTOR],
+                    [(150 + ROBOT_SIZE) * SCALE_FACTOR, (150 - ROBOT_SIZE) * SCALE_FACTOR],
+                    [(150 + ROBOT_SIZE) * SCALE_FACTOR, 250 * SCALE_FACTOR],
+                    [(100 - ROBOT_SIZE) * SCALE_FACTOR, 250 * SCALE_FACTOR]],
+                   np.int32)
+    cv.fillPoly(map, [pts], YELLOW)
+
+    # box 2
+    pts = np.array([[100*SCALE_FACTOR, 150*SCALE_FACTOR],
+                    [150*SCALE_FACTOR, 150*SCALE_FACTOR],
+                    [150*SCALE_FACTOR, 250*SCALE_FACTOR],
+                    [100*SCALE_FACTOR, 250*SCALE_FACTOR]],
+                   np.int32)
+    cv.fillPoly(map, [pts], BLUE)
+
+    # hexagon boundry
+    pts = np.array([[300*SCALE_FACTOR, (50 - ROBOT_SIZE) * SCALE_FACTOR],  # 1
+                    [(365+ROBOT_SIZE)*SCALE_FACTOR, (87 - ROBOT_SIZE*tan(deg2rad(30)))*SCALE_FACTOR],  # 2
+                    [(365+ROBOT_SIZE)*SCALE_FACTOR, (161 + ROBOT_SIZE*tan(deg2rad(30)))*SCALE_FACTOR],
+                    [300*SCALE_FACTOR, (200 + ROBOT_SIZE) * SCALE_FACTOR],
+                    [(235-ROBOT_SIZE)*SCALE_FACTOR, (161 + ROBOT_SIZE*tan(deg2rad(30)))*SCALE_FACTOR],
+                    [(235-ROBOT_SIZE)*SCALE_FACTOR, (87 - ROBOT_SIZE*tan(deg2rad(30)))*SCALE_FACTOR]],  # 6
+                   np.int32)
+    cv.fillPoly(map, [pts], YELLOW)
+
+    # hexagon
+    pts = np.array([[300*SCALE_FACTOR, 50*SCALE_FACTOR],
+                    [365*SCALE_FACTOR, 87*SCALE_FACTOR],
+                    [365*SCALE_FACTOR, 161*SCALE_FACTOR],
+                    [300*SCALE_FACTOR, 200*SCALE_FACTOR],
+                    [235*SCALE_FACTOR, 161*SCALE_FACTOR],
+                    [235*SCALE_FACTOR, 87*SCALE_FACTOR]],
+                   np.int32)
+    cv.fillPoly(map, [pts], BLUE)
+
+    # triangle boundry
+    pts = np.array([[(460-ROBOT_SIZE)*SCALE_FACTOR, (25-ROBOT_SIZE)*SCALE_FACTOR],
+                    [(460+ROBOT_SIZE)*SCALE_FACTOR, (25-ROBOT_SIZE)*SCALE_FACTOR],
+                    [(510+ROBOT_SIZE)*SCALE_FACTOR, 125*SCALE_FACTOR],
+                    [(460+ROBOT_SIZE)*SCALE_FACTOR, (225+ROBOT_SIZE)*SCALE_FACTOR],
+                    [(460-ROBOT_SIZE)*SCALE_FACTOR, (225+ROBOT_SIZE)*SCALE_FACTOR]],
+                   np.int32)
+    cv.fillPoly(map, [pts], YELLOW)
+
+    # triangle
+    pts = np.array([[460*SCALE_FACTOR, 25*SCALE_FACTOR],
+                    [510*SCALE_FACTOR, 125*SCALE_FACTOR],
+                    [460*SCALE_FACTOR, 225*SCALE_FACTOR]],
+                   np.int32)
+    cv.fillPoly(map, [pts], BLUE)
+
+    return map
+
+
+def get_valid_point_map(color_map):
+    valid_point_map = np.ones((250 * SCALE_FACTOR, 600 * SCALE_FACTOR), np.uint8)
+    for x in range(0, 600 * SCALE_FACTOR):
+        for y in range(0, 250 * SCALE_FACTOR):
+            pixel_color = tuple(color_map[y, x])
+            if pixel_color == YELLOW or pixel_color == BLUE:
+                valid_point_map[y, x] = 0
+    return valid_point_map
+
+
+def determine_valid_point(valid_point_map, coordinates):
+    if not __point_is_inside_map(coordinates[X], coordinates[Y]):
         return False
-
-#check if coordinates are within obs_1
-def obs_1 (x, y):
-    if y-105 <= 0 and x-95 >= 0 and x-155 <= 0: 
+    if valid_point_map[coordinates[Y], coordinates[X]] == 1:
         return True
     else:
         return False
-    
-#check if coordinates are within obs_2    
-def obs_2 (x, y):
-    if y-145 >= 0 and x-95 >= 0 and x-155 <= 0: 
-        return True
+
+
+def __point_is_inside_map(x, y):
+    if (x > 600) or (x < 0):
+        return False
+    elif (y > 250) or (y < 0):
+        return False
     else:
-        return False
-
-#check if coordinates are within obs_3    
-def obs_3 (x, y): 
-    if y-20 >= 0 and y-230 <= 0 and x-455 >= 0 and math.ceil(y - 2.1*(x) + 956.5) >= 0 and math.ceil(y + 2.1*(x) - 1206.5) <= 0:
         return True
-    else: 
-        return False
 
-#check if coordinates are within obs_4
-def obs_4 (x, y): 
-    if math.ceil(y - (4/7)*(x) + (885/7)) >= 0 and math.ceil(y + (4/7)*(x) - (1515/7)) >= 0 and math.ceil(y - (4/7)*(x) - (235/7)) <= 0 and math.ceil(y + (4/7)*(x) - (2635/7)) <= 0 and x - 230 >= 0 and x - 370 <= 0:
+def __add_point(x, y, map, color):
+    map[y, x] = color
+    return map
 
-        return True
-    else: 
-        return False
 
-#user input required to fill out the following
-start_position = (10, 10, 30)
-goal_position = (595, 125, 30)
-step_size = 10
-clearance = 5
-robot_size = 5
-thresh = 0.5
+def __draw_line(p1, p2, map, color):
+    pts = np.array([[p1[0], p1[1]], [p2[0], p2[1]]],
+                   np.int32)
+    cv.fillPoly(map, [pts], color)
+
+
+def draw_node(child_coordinates, parent_coordinates, map, color):
+
+    child_coordinates = tuple(int(SCALE_FACTOR * x) for x in child_coordinates)
+    cv.circle(map, child_coordinates, radius=3, color=color, thickness=-1)
+
+    if parent_coordinates is not None:
+        parent_coordinates = tuple(int(SCALE_FACTOR * x) for x in parent_coordinates)
+        cv.circle(map, parent_coordinates, radius=3, color=color, thickness=-1)
+        __draw_line(child_coordinates, parent_coordinates, map, color)
+
 
 #function that defines the goal position as a circle with a threshhold. takes in the size of the robot as the threshhold for the target
 def point_in_goal(x, y):
     distance = math.sqrt((x-goal_position[0])**2 + (y-goal_position[1])**2)
-    if distance <= robot_size:
+    if distance <= ROBOT_SIZE:
         return True
     else:
         return False
 
-#creat 2 sets, 1 containing all the possible points within map, 1 containg all possible points within the obstacle spaces
-#this will be used later to check the created points to see if they can be used
-for x in x_range:
-    for y in y_range:
-        if boundries(x, y):
-            map_points.add((x, y))
-        if obs_1(x, y) or obs_2(x, y) or obs_3(x, y) or obs_4(x, y):
-            obstacle_points.add((x, y))
-
-
-if (start_position[0], start_position[1]) in obstacle_points:
-    print("start point selected is in obstacle space, try again")
-    exit()
-if (start_position[0], start_position[1]) not in map_points:
-    print("start point selected is  outside the map, try again")
-    exit()
-if (goal_position[0], goal_position[1]) in obstacle_points:
-    print("start point selected is in obstacle space, try again")
-    exit()
-if (goal_position[0], goal_position[1]) not in map_points:
-    print("start point selected is  outside the map, try again")
-    exit()
 
 #function to calculate the cost to go to from the point to the goal in a straight line
+
 def C2G_func (n_position, g_position): 
     C2G = round(((g_position[0]-n_position[0])**2 + (g_position[1]-n_position[1])**2)**0.5, 1)
     return C2G
 
-#initial values for the start node
-C2G1 = C2G_func(start_position, goal_position)
-C2C1 = 0
-TC1 = C2G1 + C2C1
-#(C2G, C2C, TC, point_index, (x,y,theta)parent_coordinates, (x,y,theta)coordinates)
-start_node = (C2G1, C2C1, TC1, node_index, None, start_position)
-hq.heappush(Open_List, start_node)
 
 #explore function that explores the next node located step-size away at +30 degrees and returns the new explored node
 def explore_pos30 (n):
@@ -211,8 +261,9 @@ def explore_straight (n):
     new = (temp_C2G, temp_C2C, temp_TC, node_index, n[5], (new_coor_x, new_coor_y, new_coor_theta))
     return new
 
-#main exploration function. starts by popping a node out of the open list and checking the status of the popped node prior to expanding the
-#the search using the exploration functions defined above. 
+# main exploration function. starts by popping a node out of the open list and checking the status of the
+# popped node prior to expanding the search using the exploration functions defined above.
+# node: (C2G, C2C, TC, point_index, (x,y,theta)parent_coordinates, (x,y,theta)coordinates)
 def exploreNodes(): 
     global goal_found
     hq.heapify(Open_List)
@@ -221,10 +272,12 @@ def exploreNodes():
             break
         popped_node = hq.heappop(Open_List)
         Closed_Coor.add((popped_node[5][0], popped_node[5][1]))
+
 #popped node is checked and added to the closed list as a dic
         check_popped_status(popped_node)
         popped_node_dic = {"C2G": popped_node[0], "C2C": popped_node[1], "TC": popped_node[2], "node_index": popped_node[3], "parent_coor": popped_node[4], "node_coor": popped_node[5]}
         Closed_List.append(popped_node_dic)
+
 #checks if the newly created node falls within the defined map points, outside the obstacles, has not been closed already and its not within the threshhold of other points
 #when all pass, it adds it to the open list 
         new_node = explore_pos30(copy.deepcopy(popped_node))
@@ -310,7 +363,8 @@ def plot_function(path):
 
 #backtracking function that takes in the last closed node from the closed list and runs a loop using
 #  the node coordinates and the parent coordinate to trace back the steps leading to the start position
-def start_backtrack (): 
+def start_backtrack ():
+    print("Backtracking...")
     path_nodes = []
     path_coor = []
     current_node = Closed_List[-1]
@@ -328,25 +382,79 @@ def start_backtrack ():
                 break
         path_nodes.append(current_node)
         path_coor.append((current_node['node_coor'][0], current_node['node_coor'][1]))
-    print(path_coor)
-    plot_function(path_coor)
-    plt.show()
-    print("length of closed list:", len(Closed_List))    
-    print("length of closed path:", len(path_nodes)) 
-    print("length of closed path coor:", len(path_coor))
+    #print(path_coor)
 
+    path_coor.reverse()
+    run_visualization(path_coor)
+    #plot_function(path_coor)
+    #plt.show()
+    #print("length of closed list:", len(Closed_List))
+    #print("length of closed path:", len(path_nodes))
+    #print("length of closed path coor:", len(path_coor))
+
+
+def run_visualization(path_coordinates):
+    parent = None
+    for node in path_coordinates:
+        draw_node(node, parent, color_map, DARK_GREEN)
+        parent = node
+        cv.imshow('Djikstra\'s Algorith', color_map)
+        cv.waitKey(1)
+    return
+
+
+if __name__ == '__main__':
+
+    ROBOT_SIZE = 3
+    # user input required to fill out the following
+    start_position = (10, 10, 30)
+    goal_position = (580, 125, 30)
+    step_size = 10
+    clearance = 5
+    thresh = 0.5
+
+    # initial values for the start node
+    C2G1 = C2G_func(start_position, goal_position)
+    C2C1 = 0
+    TC1 = C2G1 + C2C1
+    # (C2G, C2C, TC, point_index, (x,y,theta)parent_coordinates, (x,y,theta)coordinates)
+    start_node = (C2G1, C2C1, TC1, node_index, None, start_position)
+    hq.heappush(Open_List, start_node)
+
+    print("Drawing map...")
+    color_map = draw_map()
+
+    print("Determining open points and obstacle points...")
+    valid_point_map = get_valid_point_map(color_map)
+    # creat 2 sets, 1 containing all the possible points within map, 1 containg all possible points within the obstacle spaces
+    # this will be used later to check the created points to see if they can be used
+    x_range = np.arange(0, 600, 0.5)
+    y_range = np.arange(0, 250, 0.5)
+    for x in np.arange(0, 600, 0.5):
+        for y in np.arange(0, 250, 0.5):
+            if valid_point_map[int(y * SCALE_FACTOR), int(x * SCALE_FACTOR)] == 1:
+                map_points.add((x, y))
+            else:
+                obstacle_points.add((x, y))
+    test = len(map_points)+len(obstacle_points)
+
+    if (start_position[0], start_position[1]) in obstacle_points:
+        print("start point selected is in obstacle space, try again")
+        exit()
+    if (start_position[0], start_position[1]) not in map_points:
+        print("start point selected is  outside the map, try again")
+        exit()
+    if (goal_position[0], goal_position[1]) in obstacle_points:
+        print(goal_position)
+        print("goal point selected is in obstacle space, try again")
+        exit()
+    if (goal_position[0], goal_position[1]) not in map_points:
+        print("goal point selected is  outside the map, try again")
+        exit()
+
+    goal_found = False
+    print("start node:", start_node)
+    print("starting exploration")
+    while not goal_found:
+        exploreNodes()
     
-
-# print("start node:", start_node)
-# y = explore_straight(start_node)
-# print(y)
-
-goal_found = False
-print("start node:", start_node)
-while not goal_found:
-    exploreNodes()
-    
-
-
-# y = exploreNodes()
-# print("Open_List:", Open_List)
