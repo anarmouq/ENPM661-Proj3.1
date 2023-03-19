@@ -415,6 +415,11 @@ def run_visualization(path_coordinates):
         parent = node
         cv.imshow('Djikstra\'s Algorith', color_map)
         cv.waitKey(1)
+
+    node = path_coordinates[-1]
+    draw_node(node, parent, color_map, RED)
+    cv.imshow('Djikstra\'s Algorith', color_map)
+
     cv.waitKey(0)
     cv.destroyAllWindows()
     return
@@ -422,11 +427,22 @@ def run_visualization(path_coordinates):
 
 if __name__ == '__main__':
 
-    ROBOT_SIZE = 3
+
     # user input required to fill out the following
-    start_position = (10, 10, 30)
-    goal_position = (580, 125, 30)
-    step_size = 10
+    start_x_position = int(input("enter start X position(0-600): "))
+    start_y_position = int(input("enter start Y position(0-250): "))
+    start_theta_position = int(input("enter start theta position(0-360): "))
+    print()
+    goal_x_position = int(input("enter goal X position(0-600): "))
+    goal_y_position = int(input("enter goal y position(0-250): "))
+    goal_theta_position = int(input("enter goal theta position(0-360): "))
+    print()
+    ROBOT_SIZE = int(input("enter robot size (0-10): "))
+    step_size = int(input("enter step size (0-10): "))
+
+    start_position = (start_x_position, start_y_position, start_theta_position)
+    goal_position = (goal_x_position, goal_y_position, goal_theta_position)
+
     clearance = 5
     thresh = 0.5
 
